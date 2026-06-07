@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Tiny2D Monitor</title>
+    <style>
+        body {
+            margin: 0; background-color: #222; display: flex;
+            justify-content: center; align-items: center; height: 100vh; overflow: hidden;
+        }
+        #canvas { background-color: black; box-shadow: 0 0 20px rgba(0,0,0,0.7); }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <script>
+        "use strict";
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Tiny2Dの形状識別定数
+        const ShapeRectangle = 4;
+        const ShapeCircle = 3;
+        const ShapeLine = 5;
+
+        // WebSocketサーバーに接続
+        const ws = new WebSocket('ws://localhost:8080');
+
+        ws.onopen = () => {
+            console.log('=== サーバー接続成功：モニター駆動 ===');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const entities = JSON.parse(event.data);
+                
+                // パケットが届いた瞬間（50ms周期）に画面をオリジナル通りのロジックで再描画
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, 600, 600);
+
+                for (let i = 0 ; i < entities.length; i++) {
+                    let e = entities[i];
+                    ctx.fillStyle = e.color;
+                    ctx.strokeStyle = e.color;
+                    ctx.lineWidth = 2; // 線を視認しやすく固定
+
+                    switch (e.shape) {
+                        case ShapeRectangle:
+                            ctx.fillRect(e.x, e.y, e.w, e.h);
+                            break;
+                        case ShapeCircle:
+                            ctx.beginPath();
+                            ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.fill();
+                            break;
+                        case ShapeLine:
+                            ctx.beginPath();
+                            ctx.moveTo(e.x0, e.y0);
+                            ctx.lineTo(e.x1, e.y1);
+                            ctx.stroke();
+                            break;
+                    }
+                }
+            } catch (e) {
+                console.error("データパースエラー:", e);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('サーバーとの接続が切断されました');
+        };
+    </script>
+</body>
+</html>
